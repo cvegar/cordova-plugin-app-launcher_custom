@@ -475,6 +475,15 @@ public class Launcher extends CordovaPlugin {
 
 					intent.putExtras(extras);
 
+					// LOGS PARA VALIDAR EL EXTRA "code"
+				if (extras != null && extras.containsKey("code")) {
+					Object codeObj = extras.get("code");
+					Log.d(TAG, "code class=" + (codeObj != null ? codeObj.getClass().getName() : "null"));
+					Log.d(TAG, "code value=" + extras.getString("code"));
+				} else {
+					Log.d(TAG, "code extra not found");
+				}
+
 					mycordova.startActivityForResult(plugin, intent, LAUNCH_REQUEST);
 					((Launcher) plugin).callbackLaunched();
 
@@ -491,6 +500,71 @@ public class Launcher extends CordovaPlugin {
 		});
 	}
 
+	@Override
+	public void onActivityResult(int requestCode, int resultCode, Intent intent) {
+		super.onActivityResult(requestCode, resultCode, intent);
+
+		Log.d(TAG, "onActivityResult requestCode=" + requestCode);
+		Log.d(TAG, "onActivityResult resultCode=" + resultCode);
+
+		if (requestCode == LAUNCH_REQUEST) {
+			if (intent != null) {
+				Log.d(TAG, "onActivityResult intent data=" + intent.getDataString());
+
+				Bundle extras = intent.getExtras();
+				if (extras != null) {
+					Log.d(TAG, "onActivityResult extras bundle=" + extras);
+
+					Set<String> keys = extras.keySet();
+					for (String key : keys) {
+						Object value = extras.get(key);
+						Log.d(TAG, "onActivityResult extra key=" + key
+								+ ", class=" + (value != null ? value.getClass().getName() : "null")
+								+ ", value=" + String.valueOf(value));
+					}
+				} else {
+					Log.d(TAG, "onActivityResult extras bundle is null");
+				}
+			} else {
+				Log.d(TAG, "onActivityResult intent is null");
+			}
+
+			if (resultCode == Activity.RESULT_OK || resultCode == Activity.RESULT_CANCELED) {
+				JSONObject json = new JSONObject();
+				try {
+					json.put("isActivityDone", true);
+					json.put("resultCode", resultCode);
+				} catch (JSONException ignored) {}
+
+				if (intent != null) {
+					Bundle extras = intent.getExtras();
+					if (extras != null) {
+						JSONObject jsonExtras = new JSONObject();
+						Set<String> keys = extras.keySet();
+						for (String key : keys) {
+							try {
+								jsonExtras.put(key, wrap(extras.get(key)));
+							} catch (JSONException ignored) {}
+						}
+						try {
+							json.put("extras", jsonExtras);
+						} catch (JSONException ignored) {}
+					}
+
+					try {
+						json.put("data", intent.getDataString());
+					} catch (JSONException ignored) {}
+				}
+
+				callback.success(json);
+			} else {
+				Log.d(TAG, "onActivityResult failed with resultCode=" + resultCode);
+				callback.error("Activity failed (" + resultCode + ").");
+			}
+		}
+	}
+
+/* 
 	@Override
 	public void onActivityResult(int requestCode, int resultCode, Intent intent) {
 		super.onActivityResult(requestCode, resultCode, intent);
@@ -525,7 +599,7 @@ public class Launcher extends CordovaPlugin {
 			}
 		}
 	}
-
+*/
 	public void callbackLaunched() {
 		try {
 			JSONObject json = new JSONObject();
