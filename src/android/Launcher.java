@@ -188,9 +188,21 @@ public class Launcher extends CordovaPlugin {
 		} else {
 			extras = new Bundle();
 		}
+
 		int flags = 0;
 		if (options.has("flags")) {
 			flags = options.getInt("flags");
+		}
+
+		// Nuevo caso: package + activity => Intent explícito
+		if (options.has("packageName") && options.has("activityName")) {
+			launchComponent(
+				options.getString("packageName"),
+				options.getString("activityName"),
+				extras,
+				flags
+			);
+			return true;
 		}
 
 		if (options.has("uri") && (options.has("packageName") || options.has("dataType"))) {
@@ -214,6 +226,7 @@ public class Launcher extends CordovaPlugin {
 			launchAction(options.getString("actionName"), extras);
 			return true;
 		}
+
 		return false;
 	}
 
@@ -439,6 +452,40 @@ public class Launcher extends CordovaPlugin {
 					Log.e(TAG, "Error: Activity for " + actionName + " was not found.");
 					e.printStackTrace();
 					callbackContext.error("Activity not found for action name.");
+				}
+			}
+		});
+	}
+
+	private void launchComponent(final String packageName, final String activityName, final Bundle extras, final int flags) {
+		final CordovaInterface mycordova = cordova;
+		final CordovaPlugin plugin = this;
+
+		Log.i(TAG, "Trying to launch component: " + packageName + "/" + activityName);
+
+		cordova.getThreadPool().execute(new LauncherRunnable(this.callback) {
+			public void run() {
+				try {
+					Intent intent = new Intent();
+					intent.setClassName(packageName, activityName);
+
+					if (flags != 0) {
+						intent.setFlags(flags);
+					}
+
+					intent.putExtras(extras);
+
+					mycordova.startActivityForResult(plugin, intent, LAUNCH_REQUEST);
+					((Launcher) plugin).callbackLaunched();
+
+				} catch (ActivityNotFoundException e) {
+					Log.e(TAG, "Error: Activity for component " + packageName + "/" + activityName + " was not found.");
+					e.printStackTrace();
+					callbackContext.error("Activity not found for explicit component.");
+				} catch (Exception e) {
+					Log.e(TAG, "Error launching explicit component " + packageName + "/" + activityName);
+					e.printStackTrace();
+					callbackContext.error("Error launching explicit component.");
 				}
 			}
 		});
